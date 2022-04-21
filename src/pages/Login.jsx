@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import GoogleButton from "react-google-button";
 
 import { auth } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -20,6 +22,19 @@ const Login = () => {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      window.alert("Login successfully, you are now redirected to the home page.");
+      navigate("/home");
+    } catch (error) {
+      window.alert(error.message);
+      setEmail("");
+      setPassword("");
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    const googleProvider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, googleProvider);
       window.alert("Login successfully, you are now redirected to the home page.");
       navigate("/home");
     } catch (error) {
@@ -95,17 +110,18 @@ const Login = () => {
           </form>
 
           <div className="mt-6">
-            <div className="relative">
+            {/* <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-2 bg-white text-gray-500">Or continue with</span>
               </div>
-            </div>
+            </div> */}
 
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              <div>
+            <div className="flex justify-center mt-6">
+              <GoogleButton onClick={handleGoogleSignIn} style={{ width: "100%" }}></GoogleButton>
+              {/* <div>
                 <a
                   href="#"
                   className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
@@ -144,7 +160,7 @@ const Login = () => {
                     />
                   </svg>
                 </a>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
