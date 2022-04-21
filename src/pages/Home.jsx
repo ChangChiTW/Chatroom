@@ -1,5 +1,9 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { CalendarIcon, ChartBarIcon, FolderIcon, HomeIcon, InboxIcon, UsersIcon } from "@heroicons/react/outline";
+
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase";
 
 const navigation = [
   { name: "Home", href: "#", icon: HomeIcon, current: true },
@@ -15,6 +19,14 @@ function classNames(...classes) {
 }
 
 const Home = () => {
+  const navigate = useNavigate();
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    signOut(auth);
+    navigate("/");
+  };
+
   return (
     <div>
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
@@ -77,6 +89,11 @@ const Home = () => {
               {/* Replace with your content */}
               <div className="py-4">
                 <div className="border-4 border-dashed border-gray-200 rounded-lg h-96" />
+                <button
+                  onClick={handleSubmit}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                  Logout
+                </button>
               </div>
               {/* /End replace */}
             </div>

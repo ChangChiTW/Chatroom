@@ -1,66 +1,99 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-// import AuthService from "../services/auth.service";
+
+import { auth } from "../firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 
 const Register = () => {
   const navigate = useNavigate();
-  let [username, setUsername] = useState("");
   let [email, setEmail] = useState("");
   let [password, setPassword] = useState("");
-  let [role, setRole] = useState("");
-  let [message, setMessage] = useState("");
 
-  const handleChangeUsername = e => {
-    setUsername(e.target.value);
-  };
-  const handleChangeEmail = e => {
+  const handleChangeEmail = async e => {
     setEmail(e.target.value);
   };
   const handleChangePassword = e => {
     setPassword(e.target.value);
   };
-  const handleChnageRole = e => {
-    setRole(e.target.value);
-  };
-  const handleRegister = () => {
-    // AuthService.register(username, email, password, role)
-    //   .then(() => {
-    //     window.alert("Registration succeeds. You are now redirected to the login page.");
-    //     navigate("/login");
-    //   })
-    //   .catch(error => {
-    //     console.log(error.response);
-    //     setMessage(error.response.data);
-    //   });
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      window.alert("Registration succeeds. You are now redirected to the login page.");
+      navigate("/");
+    } catch (error) {
+      window.alert(error.message);
+      setEmail("");
+      setPassword("");
+    }
   };
 
   return (
-    <div style={{ padding: "3rem" }} className="col-md-12">
-      <div>
-        {message && <div className="alert alert-danger">{message}</div>}
-        <div>
-          <label htmlFor="username">Username</label>
-          <input onChange={handleChangeUsername} type="text" className="form-control" name="username" />
+    <div className="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <img
+          className="mx-auto h-12 w-auto"
+          src="https://tailwindui.com/img/logos/workflow-mark-indigo-600.svg"
+          alt="Workflow"
+        />
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Sign up your account</h2>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <form className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email address
+              </label>
+              <div className="mt-1">
+                <input
+                  onChange={handleChangeEmail}
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <div className="mt-1">
+                <input
+                  onChange={handleChangePassword}
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end">
+              <div className="text-sm">
+                <a href="/" className="font-medium text-indigo-600 hover:text-indigo-500">
+                  Already have an account? Sign in now!
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <button
+                onClick={handleSubmit}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Sign up
+              </button>
+            </div>
+          </form>
         </div>
-        <br />
-        <div className="form-group">
-          <label htmlFor="email">email</label>
-          <input onChange={handleChangeEmail} type="text" className="form-control" name="email" />
-        </div>
-        <br />
-        <div className="form-group">
-          <label htmlFor="password">Password</label>
-          <input onChange={handleChangePassword} type="password" className="form-control" name="password" />
-        </div>
-        <br />
-        <div className="form-group">
-          <label htmlFor="password">role</label>
-          <input onChange={handleChnageRole} type="text" className="form-control" name="role" />
-        </div>
-        <br />
-        <button onClick={handleRegister} className="btn btn-primary">
-          <span>Register</span>
-        </button>
       </div>
     </div>
   );

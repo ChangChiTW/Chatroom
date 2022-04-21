@@ -1,7 +1,34 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-const Login = ({ auth }) => {
-  console.log(auth);
+import { auth } from "../firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+
+const Login = () => {
+  const navigate = useNavigate();
+  let [email, setEmail] = useState("");
+  let [password, setPassword] = useState("");
+
+  const handleChangeEmail = async e => {
+    setEmail(e.target.value);
+  };
+  const handleChangePassword = e => {
+    setPassword(e.target.value);
+  };
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      window.alert("Login successfully, you are now redirected to the home page.");
+      navigate("/home");
+    } catch (error) {
+      window.alert(error.message);
+      setEmail("");
+      setPassword("");
+    }
+  };
+
   return (
     <div className="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -22,6 +49,7 @@ const Login = ({ auth }) => {
               </label>
               <div className="mt-1">
                 <input
+                  onChange={handleChangeEmail}
                   id="email"
                   name="email"
                   type="email"
@@ -38,6 +66,7 @@ const Login = ({ auth }) => {
               </label>
               <div className="mt-1">
                 <input
+                  onChange={handleChangePassword}
                   id="password"
                   name="password"
                   type="password"
@@ -58,7 +87,7 @@ const Login = ({ auth }) => {
 
             <div>
               <button
-                type="submit"
+                onClick={handleSubmit}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 Sign in
               </button>
