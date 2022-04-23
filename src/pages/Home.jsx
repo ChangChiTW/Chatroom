@@ -1,15 +1,13 @@
-import React, { useState, Fragment } from "react";
+import { useState, Fragment, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Dialog, Transition } from "@headlessui/react";
-import { HomeIcon, LogoutIcon, CogIcon, XIcon, MenuIcon } from "@heroicons/react/outline";
+import { LogoutIcon, CogIcon, XIcon, MenuIcon } from "@heroicons/react/outline";
 import { PlusSmIcon } from "@heroicons/react/solid";
 
 import { auth, db } from "../firebase";
-import { signOut, onAuthStateChanged } from "firebase/auth";
+import { signOut } from "firebase/auth";
 import { ref, onValue, set } from "firebase/database";
-
-const chatroom = [{ name: "Pulic", icon: HomeIcon, current: true }];
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -24,15 +22,57 @@ function guid() {
 }
 
 const Home = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [openSidebar, setOpenSidebar] = useState(false);
+  const [openNewChatroom, setOpenNewChatroom] = useState(false);
+  const [openChatroomSettings, setOpenChatroomSettings] = useState(false);
+
+  const [privacy, setPrivacy] = useState("private");
   const [messages, setMessages] = useState(null);
+  const [newMember, setNewMember] = useState("");
+  const [currentChatroom, setCurrentChatroom] = useState("public");
+  const [newChatroom, setNewChatroom] = useState("");
+  const [chatroom, setChatroom] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  const [newText, setNewText] = useState("");
 
   const navigate = useNavigate();
 
   onValue(
-    ref(db, `rooms/public/messages`),
+    ref(db, `rooms`),
     snapshot => {
+      if (auth.currentUser) setCurrentUser(auth.currentUser);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const temp = [];
+        for (let room in data) {
+          if (!currentUser) continue;
+          let canAccess = false;
+          if (!data[room].private) canAccess = true;
+          else if (data[room].private && data[room].users)
+            for (let user in data[room].users) if (currentUser.email == data[room].users[user]) canAccess = true;
+
+          if (canAccess) {
+            temp.push({
+              name: room,
+              private: data[room].private,
+              users: data[room].users,
+            });
+          }
+          temp.sort(function (x, y) {
+            return x.name == "public" ? -1 : y.name == "public" ? 1 : 0;
+          });
+          setChatroom(temp);
+        }
+      }
+    },
+    { onlyOnce: true }
+  );
+
+  onValue(
+    ref(db, `rooms/${currentChatroom}/messages`),
+    snapshot => {
+      setMessages([]);
       if (snapshot.exists()) {
         const data = snapshot.val();
         const temp = [];
@@ -48,39 +88,195 @@ const Home = () => {
     { onlyOnce: true }
   );
 
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      setCurrentUser(user);
-    } else {
-      navigate("/");
-    }
-  });
-
   const handleLogout = e => {
     e.preventDefault();
     signOut(auth);
     navigate("/");
   };
 
-  const handleSubmit = async e => {
+  const handleNewText = async e => {
     e.preventDefault();
-    const newMessage = document.getElementById("newMessage").value;
-    document.getElementById("newMessage").value = "";
     const newId = guid();
     const data = {
-      text: newMessage,
+      text: newText,
       createdAt: new Date().toLocaleString(),
       createdBy: currentUser.uid,
       name: currentUser.displayName,
       photo: currentUser.photoURL,
     };
-    await set(ref(db, `rooms/public/messages/${newId}`), data);
+    setNewText("");
+    await set(ref(db, `rooms/${currentChatroom}/messages/${newId}`), data);
+  };
+
+  const handleCreateNewRoom = async e => {
+    e.preventDefault();
+    setOpenNewChatroom(false);
+    const data = {
+      private: privacy == "private",
+    };
+    await set(ref(db, `rooms/${newChatroom}`), data);
+    await set(ref(db, `rooms/${newChatroom}/users/${currentUser.displayName}`), currentUser.email);
+    setPrivacy("private");
+    setNewChatroom("");
+  };
+
+  const handleAddNewMember = async e => {
+    e.preventDefault();
+    setOpenChatroomSettings(false);
+    await set(ref(db, `rooms/${currentChatroom}/users/${newMember.split("@")[0]}`), newMember);
+    setNewMember("");
   };
 
   return (
-    <div>
-      <Transition.Root show={sidebarOpen} as={Fragment}>
-        <Dialog as="div" className="fixed inset-0 flex z-40 md:hidden" onClose={setSidebarOpen}>
+    <>
+      <Transition.Root show={openChatroomSettings} as={Fragment}>
+        <Dialog as="div" className="fixed z-10 inset-0 overflow-y-auto" onClose={setOpenChatroomSettings}>
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0">
+              <Dialog.Overlay className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+            </Transition.Child>
+
+            {/* This element is to trick the browser into centering the modal contents. */}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+              &#8203;
+            </span>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enterTo="opacity-100 translate-y-0 sm:scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+              <div className="relative inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <div>
+                  <div className="space-y-6">
+                    <div>
+                      <label htmlFor="newMember" className="block text-sm font-medium ">
+                        New member's email
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          onChange={e => setNewMember(e.target.value)}
+                          value={newMember}
+                          id="newMember"
+                          name="newMember"
+                          type="email"
+                          required
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                  <button
+                    type="button"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm"
+                    onClick={handleAddNewMember}>
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm"
+                    onClick={() => setOpenChatroomSettings(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition.Root>
+      <Transition.Root show={openNewChatroom} as={Fragment}>
+        <Dialog as="div" className="fixed z-10 inset-0 overflow-y-auto" onClose={setOpenNewChatroom}>
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0">
+              <Dialog.Overlay className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+            </Transition.Child>
+
+            {/* This element is to trick the browser into centering the modal contents. */}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+              &#8203;
+            </span>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enterTo="opacity-100 translate-y-0 sm:scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+              <div className="relative inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <div>
+                  <div className="space-y-6">
+                    <div>
+                      <label htmlFor="newChatroom" className="block text-sm font-medium ">
+                        New Chatroom Name
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          onChange={e => setNewChatroom(e.target.value)}
+                          value={newChatroom}
+                          id="newChatroom"
+                          name="newChatroom"
+                          type="text"
+                          required
+                          className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="privacy" className="block text-sm font-medium pt-2">
+                          Privacy
+                        </label>
+                        <select
+                          onChange={e => setPrivacy(e.target.value)}
+                          id="privacy"
+                          name="privacy"
+                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                          defaultValue="private">
+                          <option value="private">Private</option>
+                          <option value="public">Public</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                  <button
+                    type="button"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm"
+                    onClick={handleCreateNewRoom}>
+                    Create
+                  </button>
+                  <button
+                    type="button"
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm"
+                    onClick={() => setOpenNewChatroom(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </Transition.Child>
+          </div>
+        </Dialog>
+      </Transition.Root>
+      <Transition.Root show={openSidebar} as={Fragment}>
+        <Dialog as="div" className="fixed inset-0 flex z-40 md:hidden" onClose={setOpenSidebar}>
           <Transition.Child
             as={Fragment}
             enter="transition-opacity ease-linear duration-300"
@@ -112,53 +308,72 @@ const Home = () => {
                   <button
                     type="button"
                     className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                    onClick={() => setSidebarOpen(false)}>
+                    onClick={() => setOpenSidebar(false)}>
                     <span className="sr-only">Close sidebar</span>
                     <XIcon className="h-6 w-6 text-white" aria-hidden="true" />
                   </button>
                 </div>
               </Transition.Child>
-              <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-                <div className="flex-shrink-0 flex items-center px-4">
+              <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+                <div className="flex items-center flex-shrink-0 px-4">
                   <img
                     className="h-8 w-auto"
                     src="https://tailwindui.com/img/logos/workflow-logo-indigo-500-mark-white-text.svg"
                     alt="Workflow"
                   />
                 </div>
-                <nav className="mt-5 px-2 space-y-1">
-                  {chatroom.map(item => (
-                    <a
-                      key={item.name}
-                      href={item.href}
-                      className={classNames(
-                        item.current
-                          ? "bg-gray-900 text-white"
-                          : "text-gray-300 hover:bg-gray-700 hover:text-white",
-                        "group flex items-center px-2 py-2 text-base font-medium rounded-md"
-                      )}>
-                      <item.icon
-                        className={classNames(
-                          item.current ? "text-gray-300" : "text-gray-400 group-hover:text-gray-300",
-                          "mr-4 flex-shrink-0 h-6 w-6"
-                        )}
-                        aria-hidden="true"
-                      />
-                      {item.name}
-                    </a>
-                  ))}
+                <nav className="mt-5 flex-1 px-2 space-y-1">
+                  {chatroom && (
+                    <div>
+                      {chatroom.map(item => (
+                        <a
+                          onClick={e => setCurrentChatroom(e.target.id)}
+                          id={item.name}
+                          key={item.name}
+                          className={classNames(
+                            item.name == currentChatroom
+                              ? "bg-gray-900 text-white"
+                              : "text-gray-300 hover:bg-gray-700 hover:text-white",
+                            "group flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                          )}>
+                          {item.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </nav>
+                <div className="relative">
+                  <div className="relative flex justify-center">
+                    <button
+                      onClick={() => {
+                        setOpenNewChatroom(true);
+                        setOpenSidebar(false);
+                      }}
+                      type="button"
+                      className="inline-flex items-center shadow-sm px-4 py-1.5 border border-gray-300 text-sm leading-5 font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                      <PlusSmIcon className="-ml-1.5 mr-1 h-5 w-5 text-gray-400" aria-hidden="true" />
+                      <span>New Chatroom</span>
+                    </button>
+                  </div>
+                </div>
               </div>
               <div className="flex-shrink-0 flex bg-gray-700 p-4">
                 <div className="flex w-full items-center justify-between">
                   <div className="flex items-center">
-                    <div>
-                      <img
-                        className="inline-block h-9 w-9 rounded-full"
-                        src={currentUser ? currentUser.photoURL : ""}
-                        alt=""
-                      />
-                    </div>
+                    {currentUser && currentUser.photoURL !== null && (
+                      <div>
+                        <img
+                          className="inline-block h-10 w-10 rounded-full"
+                          src={currentUser ? currentUser.photoURL : ""}
+                          alt=""
+                        />
+                      </div>
+                    )}
+                    {currentUser && currentUser.photoURL == null && (
+                      <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
+                        <span className="font-medium leading-none text-white">{currentUser.displayName}</span>
+                      </span>
+                    )}
                     <div className="ml-3">
                       <p className="text-sm font-medium text-white">
                         {currentUser ? currentUser.displayName : ""}
@@ -175,10 +390,9 @@ const Home = () => {
               </div>
             </div>
           </Transition.Child>
-          <div className="flex-shrink-0 w-14">{/* Force sidebar to shrink to fit close icon */}</div>
+          <div className="flex-shrink-0 w-14"></div>
         </Dialog>
       </Transition.Root>
-
       {/* Static sidebar for desktop */}
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
         {/* Sidebar component, swap this element with another sidebar if you like */}
@@ -192,28 +406,32 @@ const Home = () => {
               />
             </div>
             <nav className="mt-5 flex-1 px-2 space-y-1">
-              {chatroom.map(item => (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  className={classNames(
-                    item.current ? "bg-gray-900 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white",
-                    "group flex items-center px-2 py-2 text-sm font-medium rounded-md"
-                  )}>
-                  <item.icon
-                    className={classNames(
-                      item.current ? "text-gray-300" : "text-gray-400 group-hover:text-gray-300",
-                      "mr-3 flex-shrink-0 h-6 w-6"
-                    )}
-                    aria-hidden="true"
-                  />
-                  {item.name}
-                </a>
-              ))}
+              {chatroom && (
+                <div>
+                  {chatroom.map(item => (
+                    <a
+                      onClick={e => setCurrentChatroom(e.target.id)}
+                      id={item.name}
+                      key={item.name}
+                      className={classNames(
+                        item.name == currentChatroom
+                          ? "bg-gray-900 text-white"
+                          : "text-gray-300 hover:bg-gray-700 hover:text-white",
+                        "group flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                      )}>
+                      {item.name}
+                    </a>
+                  ))}
+                </div>
+              )}
             </nav>
             <div className="relative">
               <div className="relative flex justify-center">
                 <button
+                  onClick={() => {
+                    setOpenNewChatroom(true);
+                    setOpenSidebar(false);
+                  }}
                   type="button"
                   className="inline-flex items-center shadow-sm px-4 py-1.5 border border-gray-300 text-sm leading-5 font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                   <PlusSmIcon className="-ml-1.5 mr-1 h-5 w-5 text-gray-400" aria-hidden="true" />
@@ -258,7 +476,7 @@ const Home = () => {
           <button
             type="button"
             className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-            onClick={() => setSidebarOpen(true)}>
+            onClick={() => setOpenSidebar(true)}>
             <span className="sr-only">Open sidebar</span>
             <MenuIcon className="h-6 w-6" aria-hidden="true" />
           </button>
@@ -273,9 +491,9 @@ const Home = () => {
                     <div className=" divide-y divide-gray-200">
                       <div className="flex items-center justify-between px-4 py-5 sm:px-6">
                         <h1 id="notes-title" className="text-lg font-medium text-gray-900">
-                          Public
+                          {currentChatroom}
                         </h1>
-                        <button>
+                        <button onClick={() => setOpenChatroomSettings(true)}>
                           <CogIcon className=" mr-3 flex-shrink-0 h-6 w-6" aria-hidden="true" />
                         </button>
                       </div>
@@ -286,7 +504,7 @@ const Home = () => {
                               {messages.map(message => (
                                 <li key={message.createdAt}>
                                   {currentUser.uid !== message.createdBy && (
-                                    <div className="flex space-x-3">
+                                    <div className="flex pt-2 space-x-3">
                                       <div className="flex-shrink-0">
                                         {message.photo && (
                                           <div>
@@ -305,9 +523,6 @@ const Home = () => {
                                         <div className="text-sm">
                                           <a href="#" className="font-medium text-gray-900">
                                             {message.name}{" "}
-                                            <span className="text-gray-500 font-medium text-xs">
-                                              {message.createdAt}
-                                            </span>{" "}
                                           </a>
                                         </div>
                                         <div className="mt-1 text-sm text-gray-700">
@@ -317,13 +532,10 @@ const Home = () => {
                                     </div>
                                   )}
                                   {currentUser.uid == message.createdBy && (
-                                    <div className="flex space-x-3 align-center justify-end">
-                                      <div>
-                                        <div className="text-sm">
+                                    <div className="flex pt-2 space-x-3 justify-end">
+                                      <div className="flex flex-col items-end">
+                                        <div className="text-sm ">
                                           <a href="#" className="font-medium text-gray-900">
-                                            <span className="text-gray-500 font-medium text-xs">
-                                              {message.createdAt}
-                                            </span>{" "}
                                             {message.name}{" "}
                                           </a>
                                         </div>
@@ -363,16 +575,18 @@ const Home = () => {
                           <form>
                             <div>
                               <textarea
-                                id="newMessage"
+                                onChange={e => setNewText(e.target.value)}
+                                value={newText}
+                                id="newText"
                                 rows={3}
                                 className="shadow-sm block w-full focus:ring-blue-500 focus:border-blue-500 sm:text-sm border border-gray-300 rounded-md"
                               />
                             </div>
                             <div className="mt-3 flex items-center justify-end">
                               <button
-                                onClick={handleSubmit}
+                                onClick={handleNewText}
                                 className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Comment
+                                Send
                               </button>
                             </div>
                           </form>
@@ -387,7 +601,7 @@ const Home = () => {
           </div>
         </main>
       </div>
-    </div>
+    </>
   );
 };
 

@@ -1,5 +1,3 @@
-import React from "react";
-
 const NotFound = () => {
   return (
     <div className="min-h-full pt-16 pb-12 flex flex-col bg-white">
