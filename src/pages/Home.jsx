@@ -225,13 +225,20 @@ const Home = () => {
           <div className="flex-shrink-0 flex bg-gray-700 p-4">
             <div className="flex w-full items-center justify-between">
               <div className="flex items-center">
-                <div>
-                  <img
-                    className="inline-block h-9 w-9 rounded-full"
-                    src={currentUser ? currentUser.photoURL : ""}
-                    alt=""
-                  />
-                </div>
+                {currentUser && currentUser.photoURL !== null && (
+                  <div>
+                    <img
+                      className="inline-block h-10 w-10 rounded-full"
+                      src={currentUser ? currentUser.photoURL : ""}
+                      alt=""
+                    />
+                  </div>
+                )}
+                {currentUser && currentUser.photoURL == null && (
+                  <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
+                    <span className="font-medium leading-none text-white">{currentUser.displayName}</span>
+                  </span>
+                )}
                 <div className="ml-3">
                   <p className="text-sm font-medium text-white">{currentUser ? currentUser.displayName : ""}</p>
                   <button className="text-xs font-medium text-gray-300 group-hover:text-gray-200">
@@ -281,7 +288,18 @@ const Home = () => {
                                   {currentUser.uid !== message.createdBy && (
                                     <div className="flex space-x-3">
                                       <div className="flex-shrink-0">
-                                        <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
+                                        {message.photo && (
+                                          <div>
+                                            <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
+                                          </div>
+                                        )}
+                                        {!message.photo && (
+                                          <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
+                                            <span className="font-medium leading-none text-white">
+                                              {message.name}
+                                            </span>
+                                          </span>
+                                        )}
                                       </div>
                                       <div>
                                         <div className="text-sm">
@@ -314,7 +332,18 @@ const Home = () => {
                                         </div>
                                       </div>
                                       <div className="flex-shrink-0">
-                                        <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
+                                        {message.photo && (
+                                          <div>
+                                            <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
+                                          </div>
+                                        )}
+                                        {!message.photo && (
+                                          <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
+                                            <span className="font-medium leading-none text-white">
+                                              {message.name}
+                                            </span>
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                   )}
