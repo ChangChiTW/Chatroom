@@ -35,11 +35,7 @@ const Register = () => {
   return (
     <div className="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <img
-          className="mx-auto h-12 w-auto"
-          src="https://tailwindui.com/img/logos/workflow-mark-indigo-600.svg"
-          alt="Workflow"
-        />
+        <img className="mx-auto h-12 w-auto" src="https://i.imgur.com/P1IhXyV.png" alt="Logo" />
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Sign up your account</h2>
       </div>
 
@@ -79,7 +75,6 @@ const Register = () => {
                 />
               </div>
             </div>
-
             <div className="flex items-center justify-end">
               <div className="text-sm">
                 <a href="/" className="font-medium text-indigo-600 hover:text-indigo-500">
@@ -87,7 +82,6 @@ const Register = () => {
                 </a>
               </div>
             </div>
-
             <div>
               <button
                 onClick={handleSubmit}

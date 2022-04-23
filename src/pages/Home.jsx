@@ -1,4 +1,4 @@
-import { useState, Fragment, useEffect } from "react";
+import { useState, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Dialog, Transition } from "@headlessui/react";
@@ -315,12 +315,8 @@ const Home = () => {
                 </div>
               </Transition.Child>
               <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-                <div className="flex items-center flex-shrink-0 px-4">
-                  <img
-                    className="h-8 w-auto"
-                    src="https://tailwindui.com/img/logos/workflow-logo-indigo-500-mark-white-text.svg"
-                    alt="Workflow"
-                  />
+                <div className="flex items-center justify-center flex-shrink-0 px-4">
+                  <img className="h-8 w-auto" src="https://i.imgur.com/ocnQA4K.png" alt="Logo" />
                 </div>
                 <nav className="mt-5 flex-1 px-2 space-y-1">
                   {chatroom && (
@@ -362,16 +358,14 @@ const Home = () => {
                   <div className="flex items-center">
                     {currentUser && currentUser.photoURL !== null && (
                       <div>
-                        <img
-                          className="inline-block h-10 w-10 rounded-full"
-                          src={currentUser ? currentUser.photoURL : ""}
-                          alt=""
-                        />
+                        <img className="inline-block h-10 w-10 rounded-full" src={currentUser.photoURL} alt="P" />
                       </div>
                     )}
                     {currentUser && currentUser.photoURL == null && (
                       <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
-                        <span className="font-medium leading-none text-white">{currentUser.displayName}</span>
+                        <span className="font-medium leading-none text-white">
+                          {currentUser.displayName[0].toUpperCase()}
+                        </span>
                       </span>
                     )}
                     <div className="ml-3">
@@ -397,13 +391,9 @@ const Home = () => {
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
         {/* Sidebar component, swap this element with another sidebar if you like */}
         <div className="flex-1 flex flex-col min-h-0 bg-gray-800">
-          <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-            <div className="flex items-center flex-shrink-0 px-4">
-              <img
-                className="h-8 w-auto"
-                src="https://tailwindui.com/img/logos/workflow-logo-indigo-500-mark-white-text.svg"
-                alt="Workflow"
-              />
+          <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto ">
+            <div className="flex items-center justify-center flex-shrink-0 px-4">
+              <img className="h-8 w-auto" src="https://i.imgur.com/ocnQA4K.png" alt="Logo" />
             </div>
             <nav className="mt-5 flex-1 px-2 space-y-1">
               {chatroom && (
@@ -445,16 +435,14 @@ const Home = () => {
               <div className="flex items-center">
                 {currentUser && currentUser.photoURL !== null && (
                   <div>
-                    <img
-                      className="inline-block h-10 w-10 rounded-full"
-                      src={currentUser ? currentUser.photoURL : ""}
-                      alt=""
-                    />
+                    <img className="inline-block h-10 w-10 rounded-full" src={currentUser.photoURL} alt="P" />
                   </div>
                 )}
                 {currentUser && currentUser.photoURL == null && (
                   <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
-                    <span className="font-medium leading-none text-white">{currentUser.displayName}</span>
+                    <span className="font-medium leading-none text-white">
+                      {currentUser.displayName[0].toUpperCase()}
+                    </span>
                   </span>
                 )}
                 <div className="ml-3">
@@ -514,7 +502,7 @@ const Home = () => {
                                         {!message.photo && (
                                           <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                                             <span className="font-medium leading-none text-white">
-                                              {message.name}
+                                              {message.name[0].toUpperCase()}
                                             </span>
                                           </span>
                                         )}
@@ -552,7 +540,7 @@ const Home = () => {
                                         {!message.photo && (
                                           <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                                             <span className="font-medium leading-none text-white">
-                                              {message.name}
+                                              {message.name[0].toUpperCase()}
                                             </span>
                                           </span>
                                         )}
