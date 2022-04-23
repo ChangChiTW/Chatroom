@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { auth } from "../firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { updateProfile, createUserWithEmailAndPassword } from "firebase/auth";
 
 const Register = () => {
   const navigate = useNavigate();
-  let [email, setEmail] = useState("");
-  let [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleChangeEmail = async e => {
     setEmail(e.target.value);
@@ -20,6 +20,9 @@ const Register = () => {
     e.preventDefault();
     try {
       await createUserWithEmailAndPassword(auth, email, password);
+      updateProfile(auth.currentUser, {
+        displayName: email.split("@")[0],
+      });
       window.alert("Registration succeeds. You are now redirected to the login page.");
       navigate("/");
     } catch (error) {

@@ -1,10 +1,11 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyBw45n_EfBKMYn_hFeLVyHE94OiIpOI_IM",
-  authDomain: "ss-chatroom-d0987.firebaseapp.com",
-  projectId: "ss-chatroom-d0987",
-  storageBucket: "ss-chatroom-d0987.appspot.com",
-  messagingSenderId: "630977914470",
-  appId: "1:630977914470:web:c6ca9e88a2b5a0ed622fa7",
+  apiKey: "AIzaSyB10B8xBnwrBUg9PDkV2eyO04mr3b5Ok6k",
+  authDomain: "ss-minichatroom.firebaseapp.com",
+  databaseURL: "https://ss-minichatroom-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  projectId: "ss-minichatroom",
+  storageBucket: "ss-minichatroom.appspot.com",
+  messagingSenderId: "532596343898",
+  appId: "1:532596343898:web:58f4b750757cef1a664463",
 };
 
 export default firebaseConfig;

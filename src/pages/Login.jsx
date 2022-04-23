@@ -3,13 +3,12 @@ import { useNavigate } from "react-router-dom";
 import GoogleButton from "react-google-button";
 
 import { auth } from "../firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 const Login = () => {
   const navigate = useNavigate();
-  let [email, setEmail] = useState("");
-  let [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleChangeEmail = async e => {
     setEmail(e.target.value);
