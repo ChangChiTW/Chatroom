@@ -7,7 +7,7 @@ import { PlusSmIcon } from "@heroicons/react/solid";
 
 import { auth, db } from "../firebase";
 import { signOut, onAuthStateChanged } from "firebase/auth";
-import { ref, onValue, set, get } from "firebase/database";
+import { ref, onValue, set } from "firebase/database";
 
 const chatroom = [{ name: "Pulic", icon: HomeIcon, current: true }];
 
@@ -36,7 +36,9 @@ const Home = () => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         const temp = [];
-        for (let message in data) temp.push(data[message]);
+        for (let message in data) {
+          temp.push(data[message]);
+        }
         temp.sort(function (a, b) {
           return new Date(a.createdAt) - new Date(b.createdAt);
         });
@@ -68,7 +70,9 @@ const Home = () => {
     const data = {
       text: newMessage,
       createdAt: new Date().toLocaleString(),
-      createdBy: currentUser.displayName,
+      createdBy: currentUser.uid,
+      name: currentUser.displayName,
+      photo: currentUser.photoURL,
     };
     await set(ref(db, `rooms/public/messages/${newId}`), data);
   };
@@ -146,21 +150,28 @@ const Home = () => {
                 </nav>
               </div>
               <div className="flex-shrink-0 flex bg-gray-700 p-4">
-                <a href="#" className="flex-shrink-0 group block">
+                <div className="flex w-full items-center justify-between">
                   <div className="flex items-center">
                     <div>
                       <img
-                        className="inline-block h-10 w-10 rounded-full"
-                        src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                        className="inline-block h-9 w-9 rounded-full"
+                        src={currentUser ? currentUser.photoURL : ""}
                         alt=""
                       />
                     </div>
                     <div className="ml-3">
-                      <p className="text-base font-medium text-white">Tom Cook</p>
-                      <p className="text-sm font-medium text-gray-400 group-hover:text-gray-300">View profile</p>
+                      <p className="text-sm font-medium text-white">
+                        {currentUser ? currentUser.displayName : ""}
+                      </p>
+                      <button className="text-xs font-medium text-gray-300 group-hover:text-gray-200">
+                        View profile
+                      </button>
                     </div>
                   </div>
-                </a>
+                  <button onClick={handleLogout}>
+                    <LogoutIcon className="text-gray-300 mr-3 flex-shrink-0 h-6 w-6" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             </div>
           </Transition.Child>
@@ -217,7 +228,7 @@ const Home = () => {
                 <div>
                   <img
                     className="inline-block h-9 w-9 rounded-full"
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                    src={currentUser ? currentUser.photoURL : ""}
                     alt=""
                   />
                 </div>
@@ -247,9 +258,6 @@ const Home = () => {
         </div>
         <main className="flex-1">
           <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-            </div>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               {/* Replace with your content */}
               <div className="py-4">
@@ -270,25 +278,46 @@ const Home = () => {
                             <div>
                               {messages.map(message => (
                                 <li key={message.createdAt}>
-                                  <div className="flex space-x-3">
-                                    {/* <div className="flex-shrink-0">
-                                <img
-                                  className="h-10 w-10 rounded-full"
-                                  src={`https://images.unsplash.com/photo-${message.imageId}?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80`}
-                                  alt=""
-                                />
-                              </div> */}
-                                    <div>
-                                      <div className="text-sm">
-                                        <a href="#" className="font-medium text-gray-900">
-                                          {message.createdBy}
-                                        </a>
+                                  {currentUser.uid !== message.createdBy && (
+                                    <div className="flex space-x-3">
+                                      <div className="flex-shrink-0">
+                                        <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
                                       </div>
-                                      <div className="mt-1 text-sm text-gray-700">
-                                        <p>{message.text}</p>
+                                      <div>
+                                        <div className="text-sm">
+                                          <a href="#" className="font-medium text-gray-900">
+                                            {message.name}{" "}
+                                            <span className="text-gray-500 font-medium text-xs">
+                                              {message.createdAt}
+                                            </span>{" "}
+                                          </a>
+                                        </div>
+                                        <div className="mt-1 text-sm text-gray-700">
+                                          <p>{message.text}</p>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
+                                  )}
+                                  {currentUser.uid == message.createdBy && (
+                                    <div className="flex space-x-3 align-center justify-end">
+                                      <div>
+                                        <div className="text-sm">
+                                          <a href="#" className="font-medium text-gray-900">
+                                            <span className="text-gray-500 font-medium text-xs">
+                                              {message.createdAt}
+                                            </span>{" "}
+                                            {message.name}{" "}
+                                          </a>
+                                        </div>
+                                        <div className="mt-1 text-sm text-gray-700">
+                                          <p>{message.text}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex-shrink-0">
+                                        <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
+                                      </div>
+                                    </div>
+                                  )}
                                 </li>
                               ))}
                             </div>
@@ -306,8 +335,6 @@ const Home = () => {
                             <div>
                               <textarea
                                 id="newMessage"
-                                // value={newMessage}
-                                // onChange={handleChangeNewMessage}
                                 rows={3}
                                 className="shadow-sm block w-full focus:ring-blue-500 focus:border-blue-500 sm:text-sm border border-gray-300 rounded-md"
                               />
