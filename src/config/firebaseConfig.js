@@ -6,6 +6,7 @@ const firebaseConfig = {
   storageBucket: "ss-minichatroom.appspot.com",
   messagingSenderId: "532596343898",
   appId: "1:532596343898:web:58f4b750757cef1a664463",
+  measurementId: "G-8XQ94C6WLY",
 };
 
 export default firebaseConfig;

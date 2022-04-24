@@ -5,9 +5,10 @@ import { Dialog, Transition } from "@headlessui/react";
 import { LogoutIcon, CogIcon, XIcon, MenuIcon } from "@heroicons/react/outline";
 import { PlusSmIcon } from "@heroicons/react/solid";
 
-import { auth, db } from "../firebase";
-import { signOut } from "firebase/auth";
+import { auth, db, messaging, token } from "../firebase";
+import { updateProfile, signOut } from "firebase/auth";
 import { ref, onValue, set } from "firebase/database";
+import { onMessage } from "firebase/messaging";
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -23,6 +24,7 @@ function guid() {
 
 const Home = () => {
   const [openSidebar, setOpenSidebar] = useState(false);
+  const [openProfile, setOpenProfile] = useState(false);
   const [openNewChatroom, setOpenNewChatroom] = useState(false);
   const [openChatroomSettings, setOpenChatroomSettings] = useState(false);
 
@@ -32,25 +34,61 @@ const Home = () => {
   const [currentChatroom, setCurrentChatroom] = useState("public");
   const [newChatroom, setNewChatroom] = useState("");
   const [chatroom, setChatroom] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
+
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [newAbout, setNewAbout] = useState("");
+  const [newPhotoURL, setNewPhotoURL] = useState("");
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
+  const [newURL, setNewURL] = useState("");
+  const [newCompany, setNewCompany] = useState("");
 
   const [newText, setNewText] = useState("");
+  const [load, setLoad] = useState(false);
 
   const navigate = useNavigate();
+
+  // onMessage(messaging, payload => {
+  //   console.log("Message received. ", payload);
+  //   // ...
+  // });
+
+  if (auth.currentUser && !load)
+    onValue(
+      ref(db, `users/${auth.currentUser.uid}`),
+      snapshot => {
+        console.log("!");
+        if (snapshot.exists()) {
+          const user = snapshot.val();
+          if (newDisplayName !== user.displayName) setNewDisplayName(user.displayName);
+          if (newAbout !== user.about) setNewAbout(user.about);
+          if (newPhotoURL !== user.photoURL) setNewPhotoURL(user.photoURL);
+          if (newFirstName !== user.firstName) setNewFirstName(user.firstName);
+          if (newLastName !== user.lastName) setNewLastName(user.lastName);
+          if (newURL !== user.url) setNewURL(user.url);
+          if (newCompany !== user.company) setNewCompany(user.company);
+        } else {
+          if (newDisplayName !== auth.currentUser.displayName) setNewDisplayName(auth.currentUser.displayName);
+          if (newPhotoURL !== auth.currentUser.photoURL) setNewPhotoURL(auth.currentUser.photoURL);
+        }
+        setLoad(true);
+      },
+      { onlyOnce: true }
+    );
 
   onValue(
     ref(db, `rooms`),
     snapshot => {
-      if (auth.currentUser) setCurrentUser(auth.currentUser);
       if (snapshot.exists()) {
         const data = snapshot.val();
         const temp = [];
         for (let room in data) {
-          if (!currentUser) continue;
+          if (!auth.currentUser) continue;
           let canAccess = false;
           if (!data[room].private) canAccess = true;
           else if (data[room].private && data[room].users)
-            for (let user in data[room].users) if (currentUser.email == data[room].users[user]) canAccess = true;
+            for (let user in data[room].users)
+              if (auth.currentUser.email == data[room].users[user]) canAccess = true;
 
           if (canAccess) {
             temp.push({
@@ -100,9 +138,9 @@ const Home = () => {
     const data = {
       text: newText,
       createdAt: new Date().toLocaleString(),
-      createdBy: currentUser.uid,
-      name: currentUser.displayName,
-      photo: currentUser.photoURL,
+      createdBy: auth.currentUser.uid,
+      name: auth.currentUser.displayName,
+      photo: auth.currentUser.photoURL,
     };
     setNewText("");
     await set(ref(db, `rooms/${currentChatroom}/messages/${newId}`), data);
@@ -115,7 +153,7 @@ const Home = () => {
       private: privacy == "private",
     };
     await set(ref(db, `rooms/${newChatroom}`), data);
-    await set(ref(db, `rooms/${newChatroom}/users/${currentUser.displayName}`), currentUser.email);
+    await set(ref(db, `rooms/${newChatroom}/users/${auth.currentUser.displayName}`), auth.currentUser.email);
     setPrivacy("private");
     setNewChatroom("");
   };
@@ -125,6 +163,29 @@ const Home = () => {
     setOpenChatroomSettings(false);
     await set(ref(db, `rooms/${currentChatroom}/users/${newMember.split("@")[0]}`), newMember);
     setNewMember("");
+  };
+
+  const handleViewProfile = () => {
+    setOpenProfile(true);
+    setCurrentChatroom(null);
+  };
+
+  const handleSaveProfile = async e => {
+    e.preventDefault();
+    await updateProfile(auth.currentUser, {
+      displayName: newDisplayName,
+      photoURL: newPhotoURL,
+    });
+    const data = {
+      displayName: newDisplayName,
+      about: newAbout,
+      photoURL: newPhotoURL,
+      firstName: newFirstName,
+      lastName: newLastName,
+      url: newURL,
+      company: newCompany,
+    };
+    await set(ref(db, `users/${auth.currentUser.uid}`), data);
   };
 
   return (
@@ -323,7 +384,10 @@ const Home = () => {
                     <div>
                       {chatroom.map(item => (
                         <a
-                          onClick={e => setCurrentChatroom(e.target.id)}
+                          onClick={e => {
+                            setCurrentChatroom(e.target.id);
+                            setOpenProfile(false);
+                          }}
                           id={item.name}
                           key={item.name}
                           className={classNames(
@@ -356,23 +420,29 @@ const Home = () => {
               <div className="flex-shrink-0 flex bg-gray-700 p-4">
                 <div className="flex w-full items-center justify-between">
                   <div className="flex items-center">
-                    {currentUser && currentUser.photoURL !== null && (
+                    {auth.currentUser && auth.currentUser.photoURL !== null && (
                       <div>
-                        <img className="inline-block h-10 w-10 rounded-full" src={currentUser.photoURL} alt="P" />
+                        <img
+                          className="inline-block h-10 w-10 rounded-full"
+                          src={auth.currentUser.photoURL}
+                          alt="P"
+                        />
                       </div>
                     )}
-                    {currentUser && currentUser.photoURL == null && (
+                    {auth.currentUser && auth.currentUser.photoURL == null && (
                       <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                         <span className="font-medium leading-none text-white">
-                          {currentUser.displayName[0].toUpperCase()}
+                          {auth.currentUser.displayName[0].toUpperCase()}
                         </span>
                       </span>
                     )}
                     <div className="ml-3">
                       <p className="text-sm font-medium text-white">
-                        {currentUser ? currentUser.displayName : ""}
+                        {auth.currentUser ? auth.currentUser.displayName : ""}
                       </p>
-                      <button className="text-xs font-medium text-gray-300 group-hover:text-gray-200">
+                      <button
+                        onClick={handleViewProfile}
+                        className="text-xs font-medium text-gray-300 group-hover:text-gray-200">
                         View profile
                       </button>
                     </div>
@@ -387,9 +457,7 @@ const Home = () => {
           <div className="flex-shrink-0 w-14"></div>
         </Dialog>
       </Transition.Root>
-      {/* Static sidebar for desktop */}
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
-        {/* Sidebar component, swap this element with another sidebar if you like */}
         <div className="flex-1 flex flex-col min-h-0 bg-gray-800">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto ">
             <div className="flex items-center justify-center flex-shrink-0 px-4">
@@ -400,7 +468,10 @@ const Home = () => {
                 <div>
                   {chatroom.map(item => (
                     <a
-                      onClick={e => setCurrentChatroom(e.target.id)}
+                      onClick={e => {
+                        setCurrentChatroom(e.target.id);
+                        setOpenProfile(false);
+                      }}
                       id={item.name}
                       key={item.name}
                       className={classNames(
@@ -433,21 +504,25 @@ const Home = () => {
           <div className="flex-shrink-0 flex bg-gray-700 p-4">
             <div className="flex w-full items-center justify-between">
               <div className="flex items-center">
-                {currentUser && currentUser.photoURL !== null && (
+                {auth.currentUser && auth.currentUser.photoURL !== null && (
                   <div>
-                    <img className="inline-block h-10 w-10 rounded-full" src={currentUser.photoURL} alt="P" />
+                    <img className="inline-block h-10 w-10 rounded-full" src={auth.currentUser.photoURL} alt="P" />
                   </div>
                 )}
-                {currentUser && currentUser.photoURL == null && (
+                {auth.currentUser && auth.currentUser.photoURL == null && (
                   <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                     <span className="font-medium leading-none text-white">
-                      {currentUser.displayName[0].toUpperCase()}
+                      {auth.currentUser.displayName[0].toUpperCase()}
                     </span>
                   </span>
                 )}
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-white">{currentUser ? currentUser.displayName : ""}</p>
-                  <button className="text-xs font-medium text-gray-300 group-hover:text-gray-200">
+                  <p className="text-sm font-medium text-white">
+                    {auth.currentUser ? auth.currentUser.displayName : ""}
+                  </p>
+                  <button
+                    onClick={handleViewProfile}
+                    className="text-xs font-medium text-gray-300 group-hover:text-gray-200">
                     View profile
                   </button>
                 </div>
@@ -473,117 +548,287 @@ const Home = () => {
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               {/* Replace with your content */}
-              <div className="py-4">
-                <section aria-labelledby="notes-title" className="h-full">
-                  <div className=" bg-white shadow sm:rounded-lg sm:overflow-hidden">
-                    <div className=" divide-y divide-gray-200">
-                      <div className="flex items-center justify-between px-4 py-5 sm:px-6">
-                        <h1 id="notes-title" className="text-lg font-medium text-gray-900">
-                          {currentChatroom}
-                        </h1>
-                        <button onClick={() => setOpenChatroomSettings(true)}>
-                          <CogIcon className=" mr-3 flex-shrink-0 h-6 w-6" aria-hidden="true" />
-                        </button>
+              {openProfile && (
+                <form className="divide-y divide-gray-200 lg:col-span-9">
+                  {/* Profile section */}
+                  <div className="py-6 px-4 sm:p-6 lg:pb-8">
+                    <div>
+                      <h2 className="text-lg leading-6 font-medium text-gray-900">Profile</h2>
+                      <p className="mt-1 text-sm text-gray-500">
+                        This information will be displayed publicly so be careful what you share.
+                      </p>
+                    </div>
+
+                    <div className="mt-6 flex flex-col lg:flex-row">
+                      <div className="flex-grow space-y-6">
+                        <div>
+                          <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                            Username
+                          </label>
+                          <div className="mt-1 rounded-md shadow-sm flex">
+                            <input
+                              onChange={e => setNewDisplayName(e.target.value)}
+                              type="text"
+                              name="username"
+                              id="username"
+                              autoComplete="username"
+                              className="focus:ring-sky-500 focus:border-sky-500 flex-grow block w-full min-w-0 rounded-none rounded-r-md sm:text-sm border-gray-300"
+                              value={newDisplayName}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="about" className="block text-sm font-medium text-gray-700">
+                            About
+                          </label>
+                          <div className="mt-1">
+                            <textarea
+                              onChange={e => setNewAbout(e.target.value)}
+                              id="about"
+                              name="about"
+                              rows={3}
+                              className="shadow-sm focus:ring-sky-500 focus:border-sky-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md"
+                              value={newAbout}
+                            />
+                          </div>
+                          <p className="mt-2 text-sm text-gray-500">
+                            Brief description for your profile. URLs are hyperlinked.
+                          </p>
+                        </div>
                       </div>
-                      <div className="px-4 py-6 sm:px-6">
-                        <ul role="list" className="space-y-8">
-                          {currentUser && messages && (
-                            <div>
-                              {messages.map(message => (
-                                <li key={message.createdAt}>
-                                  {currentUser.uid !== message.createdBy && (
-                                    <div className="flex pt-2 space-x-3">
-                                      <div className="flex-shrink-0">
-                                        {message.photo && (
-                                          <div>
-                                            <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
-                                          </div>
-                                        )}
-                                        {!message.photo && (
-                                          <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
-                                            <span className="font-medium leading-none text-white">
-                                              {message.name[0].toUpperCase()}
-                                            </span>
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div>
-                                        <div className="text-sm">
-                                          <a href="#" className="font-medium text-gray-900">
-                                            {message.name}{" "}
-                                          </a>
-                                        </div>
-                                        <div className="mt-1 text-sm text-gray-700">
-                                          <p>{message.text}</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {currentUser.uid == message.createdBy && (
-                                    <div className="flex pt-2 space-x-3 justify-end">
-                                      <div className="flex flex-col items-end">
-                                        <div className="text-sm ">
-                                          <a href="#" className="font-medium text-gray-900">
-                                            {message.name}{" "}
-                                          </a>
-                                        </div>
-                                        <div className="mt-1 text-sm text-gray-700">
-                                          <p>{message.text}</p>
-                                        </div>
-                                      </div>
-                                      <div className="flex-shrink-0">
-                                        {message.photo && (
-                                          <div>
-                                            <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
-                                          </div>
-                                        )}
-                                        {!message.photo && (
-                                          <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
-                                            <span className="font-medium leading-none text-white">
-                                              {message.name[0].toUpperCase()}
-                                            </span>
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </li>
-                              ))}
+
+                      <div className="mt-6 flex-grow lg:mt-0 lg:ml-6 lg:flex-grow-0 lg:flex-shrink-0">
+                        <p className="text-sm font-medium text-gray-700" aria-hidden="true">
+                          Photo
+                        </p>
+                        <div className="mt-1 lg:hidden">
+                          <div className="flex items-center">
+                            <div
+                              className="flex-shrink-0 inline-block rounded-full overflow-hidden h-12 w-12"
+                              aria-hidden="true">
+                              <img className="rounded-full h-full w-full" src={newPhotoURL} alt="" />
                             </div>
-                          )}
-                        </ul>
+                            <div className="ml-5 rounded-md shadow-sm">
+                              <div className="group relative border border-gray-300 rounded-md py-2 px-3 flex items-center justify-center hover:bg-gray-50 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-sky-500">
+                                <label
+                                  htmlFor="mobile-user-photo"
+                                  className="relative text-sm leading-4 font-medium text-gray-700 pointer-events-none">
+                                  <span>Change</span>
+                                  <span className="sr-only"> user photo</span>
+                                </label>
+                                <input
+                                  onChange={e => setNewPhotoURL(URL.createObjectURL(e.target.files[0]))}
+                                  id="mobile-user-photo"
+                                  name="user-photo"
+                                  type="file"
+                                  className="absolute w-full h-full opacity-0 cursor-pointer border-gray-300 rounded-md"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="hidden relative rounded-full overflow-hidden lg:block">
+                          <img className="relative rounded-full w-40 h-40" src={newPhotoURL} alt="" />
+                          <label
+                            htmlFor="desktop-user-photo"
+                            className="absolute inset-0 w-full h-full bg-black bg-opacity-75 flex items-center justify-center text-sm font-medium text-white opacity-0 hover:opacity-100 focus-within:opacity-100">
+                            <span>Change</span>
+                            <span className="sr-only"> user photo</span>
+                            <input
+                              onChange={e => setNewPhotoURL(URL.createObjectURL(e.target.files[0]))}
+                              type="file"
+                              id="desktop-user-photo"
+                              name="user-photo"
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer border-gray-300 rounded-md"
+                            />
+                          </label>
+                        </div>
                       </div>
                     </div>
-                    <div className="bg-gray-50 px-4 py-6 sm:px-6">
-                      <div className="flex space-x-3">
-                        <div className="flex-shrink-0">
-                          {/* <img className="h-10 w-10 rounded-full" src={user.imageUrl} alt="" /> */}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <form>
-                            <div>
-                              <textarea
-                                onChange={e => setNewText(e.target.value)}
-                                value={newText}
-                                id="newText"
-                                rows={3}
-                                className="shadow-sm block w-full focus:ring-blue-500 focus:border-blue-500 sm:text-sm border border-gray-300 rounded-md"
-                              />
-                            </div>
-                            <div className="mt-3 flex items-center justify-end">
-                              <button
-                                onClick={handleNewText}
-                                className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Send
-                              </button>
-                            </div>
-                          </form>
-                        </div>
+
+                    <div className="mt-6 grid grid-cols-12 gap-6">
+                      <div className="col-span-12 sm:col-span-6">
+                        <label htmlFor="first-name" className="block text-sm font-medium text-gray-700">
+                          First name
+                        </label>
+                        <input
+                          onChange={e => setNewFirstName(e.target.value)}
+                          value={newFirstName}
+                          type="text"
+                          name="first-name"
+                          id="first-name"
+                          autoComplete="given-name"
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                        />
                       </div>
+
+                      <div className="col-span-12 sm:col-span-6">
+                        <label htmlFor="last-name" className="block text-sm font-medium text-gray-700">
+                          Last name
+                        </label>
+                        <input
+                          onChange={e => setNewLastName(e.target.value)}
+                          value={newLastName}
+                          type="text"
+                          name="last-name"
+                          id="last-name"
+                          autoComplete="family-name"
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                        />
+                      </div>
+
+                      <div className="col-span-12">
+                        <label htmlFor="url" className="block text-sm font-medium text-gray-700">
+                          URL
+                        </label>
+                        <input
+                          onChange={e => setNewURL(e.target.value)}
+                          value={newURL}
+                          type="text"
+                          name="url"
+                          id="url"
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                        />
+                      </div>
+
+                      <div className="col-span-12 sm:col-span-6">
+                        <label htmlFor="company" className="block text-sm font-medium text-gray-700">
+                          Company
+                        </label>
+                        <input
+                          onChange={e => setNewCompany(e.target.value)}
+                          value={newCompany}
+                          type="text"
+                          name="company"
+                          id="company"
+                          autoComplete="organization"
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 py-4 px-4 flex justify-end sm:px-6">
+                      <button
+                        onClick={handleSaveProfile}
+                        className="ml-5 bg-sky-700 border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-white hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500">
+                        Save
+                      </button>
                     </div>
                   </div>
-                </section>
-              </div>
+                </form>
+              )}
+              {!openProfile && (
+                <div className="py-4">
+                  <section aria-labelledby="notes-title" className="h-full">
+                    <div className=" bg-white shadow sm:rounded-lg sm:overflow-hidden">
+                      <div className=" divide-y divide-gray-200">
+                        <div className="flex items-center justify-between px-4 py-5 sm:px-6">
+                          <h1 id="notes-title" className="text-lg font-medium text-gray-900">
+                            {currentChatroom}
+                          </h1>
+                          <button onClick={() => setOpenChatroomSettings(true)}>
+                            <CogIcon className=" mr-3 flex-shrink-0 h-6 w-6" aria-hidden="true" />
+                          </button>
+                        </div>
+                        <div className="px-4 py-6 sm:px-6">
+                          <ul role="list" className="space-y-8">
+                            {auth.currentUser && messages && (
+                              <div>
+                                {messages.map(message => (
+                                  <li key={message.createdAt}>
+                                    {auth.currentUser.uid !== message.createdBy && (
+                                      <div className="flex pt-2 space-x-3">
+                                        <div className="flex-shrink-0">
+                                          {message.photo && (
+                                            <div>
+                                              <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
+                                            </div>
+                                          )}
+                                          {!message.photo && (
+                                            <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
+                                              <span className="font-medium leading-none text-white">
+                                                {message.name[0].toUpperCase()}
+                                              </span>
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div>
+                                          <div className="text-sm">
+                                            <a href="#" className="font-medium text-gray-900">
+                                              {message.name}{" "}
+                                            </a>
+                                          </div>
+                                          <div className="mt-1 text-sm text-gray-700">
+                                            <p>{message.text}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {auth.currentUser.uid == message.createdBy && (
+                                      <div className="flex pt-2 space-x-3 justify-end">
+                                        <div className="flex flex-col items-end">
+                                          <div className="text-sm ">
+                                            <a href="#" className="font-medium text-gray-900">
+                                              {message.name}{" "}
+                                            </a>
+                                          </div>
+                                          <div className="mt-1 text-sm text-gray-700">
+                                            <p>{message.text}</p>
+                                          </div>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                          {message.photo && (
+                                            <div>
+                                              <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
+                                            </div>
+                                          )}
+                                          {!message.photo && (
+                                            <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
+                                              <span className="font-medium leading-none text-white">
+                                                {message.name[0].toUpperCase()}
+                                              </span>
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </li>
+                                ))}
+                              </div>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 px-4 py-6 sm:px-6">
+                        <div className="flex space-x-3">
+                          <div className="min-w-0 flex-1">
+                            <form>
+                              <div>
+                                <textarea
+                                  onChange={e => setNewText(e.target.value)}
+                                  value={newText}
+                                  id="newText"
+                                  rows={3}
+                                  className="shadow-sm block w-full focus:ring-blue-500 focus:border-blue-500 sm:text-sm border border-gray-300 rounded-md"
+                                />
+                              </div>
+                              <div className="mt-3 flex items-center justify-end">
+                                <button
+                                  onClick={handleNewText}
+                                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                  Send
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              )}
               {/* /End replace */}
             </div>
           </div>
