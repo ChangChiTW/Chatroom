@@ -2,9 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import GoogleButton from "react-google-button";
 
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { ref, set } from "firebase/database";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -22,7 +21,6 @@ const Login = () => {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      window.alert("Login successfully, you are now redirected to the home page.");
       navigate("/home");
     } catch (error) {
       window.alert(error.message);
@@ -35,7 +33,6 @@ const Login = () => {
     const googleProvider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, googleProvider);
-      window.alert("Login successfully, you are now redirected to the home page.");
       navigate("/home");
     } catch (error) {
       window.alert(error.message);

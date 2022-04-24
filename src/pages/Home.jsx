@@ -46,6 +46,8 @@ const Home = () => {
   const [newText, setNewText] = useState("");
   const [load, setLoad] = useState(false);
 
+  const [currentUser, setCurrentUser] = useState(null);
+
   const navigate = useNavigate();
 
   // onMessage(messaging, payload => {
@@ -57,19 +59,26 @@ const Home = () => {
     onValue(
       ref(db, `users/${auth.currentUser.uid}`),
       snapshot => {
-        console.log("!");
         if (snapshot.exists()) {
           const user = snapshot.val();
-          if (newDisplayName !== user.displayName) setNewDisplayName(user.displayName);
-          if (newAbout !== user.about) setNewAbout(user.about);
-          if (newPhotoURL !== user.photoURL) setNewPhotoURL(user.photoURL);
-          if (newFirstName !== user.firstName) setNewFirstName(user.firstName);
-          if (newLastName !== user.lastName) setNewLastName(user.lastName);
-          if (newURL !== user.url) setNewURL(user.url);
-          if (newCompany !== user.company) setNewCompany(user.company);
+          setCurrentUser({
+            uid: auth.currentUser.uid,
+            email: auth.currentUser.email,
+            displayName: user.displayName,
+            about: user.about,
+            photoURL: user.photoURL,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            url: user.url,
+            company: user.company,
+          });
         } else {
-          if (newDisplayName !== auth.currentUser.displayName) setNewDisplayName(auth.currentUser.displayName);
-          if (newPhotoURL !== auth.currentUser.photoURL) setNewPhotoURL(auth.currentUser.photoURL);
+          setCurrentUser({
+            uid: auth.currentUser.uid,
+            email: auth.currentUser.email,
+            displayName: auth.currentUser.displayName,
+            photoURL: auth.currentUser.photoURL,
+          });
         }
         setLoad(true);
       },
@@ -83,12 +92,11 @@ const Home = () => {
         const data = snapshot.val();
         const temp = [];
         for (let room in data) {
-          if (!auth.currentUser) continue;
+          if (!currentUser) continue;
           let canAccess = false;
           if (!data[room].private) canAccess = true;
           else if (data[room].private && data[room].users)
-            for (let user in data[room].users)
-              if (auth.currentUser.email == data[room].users[user]) canAccess = true;
+            for (let user in data[room].users) if (currentUser.email == data[room].users[user]) canAccess = true;
 
           if (canAccess) {
             temp.push({
@@ -138,9 +146,9 @@ const Home = () => {
     const data = {
       text: newText,
       createdAt: new Date().toLocaleString(),
-      createdBy: auth.currentUser.uid,
-      name: auth.currentUser.displayName,
-      photo: auth.currentUser.photoURL,
+      createdBy: currentUser.uid,
+      name: currentUser.displayName,
+      photo: currentUser.photoURL,
     };
     setNewText("");
     await set(ref(db, `rooms/${currentChatroom}/messages/${newId}`), data);
@@ -153,7 +161,7 @@ const Home = () => {
       private: privacy == "private",
     };
     await set(ref(db, `rooms/${newChatroom}`), data);
-    await set(ref(db, `rooms/${newChatroom}/users/${auth.currentUser.displayName}`), auth.currentUser.email);
+    await set(ref(db, `rooms/${newChatroom}/users/${currentUser.displayName}`), currentUser.email);
     setPrivacy("private");
     setNewChatroom("");
   };
@@ -174,10 +182,10 @@ const Home = () => {
     e.preventDefault();
     await updateProfile(auth.currentUser, {
       displayName: newDisplayName,
-      photoURL: newPhotoURL,
+      // photoURL: newPhotoURL,
     });
     const data = {
-      displayName: newDisplayName,
+      displayName: newDisplayName ? newDisplayName : currentUser.displayName,
       about: newAbout,
       photoURL: newPhotoURL,
       firstName: newFirstName,
@@ -185,7 +193,9 @@ const Home = () => {
       url: newURL,
       company: newCompany,
     };
-    await set(ref(db, `users/${auth.currentUser.uid}`), data);
+    await set(ref(db, `users/${currentUser.uid}`), data);
+    setLoad(false);
+    window.alert("Profile update successfull!");
   };
 
   return (
@@ -420,25 +430,21 @@ const Home = () => {
               <div className="flex-shrink-0 flex bg-gray-700 p-4">
                 <div className="flex w-full items-center justify-between">
                   <div className="flex items-center">
-                    {auth.currentUser && auth.currentUser.photoURL !== null && (
+                    {currentUser && currentUser.photoURL !== null && (
                       <div>
-                        <img
-                          className="inline-block h-10 w-10 rounded-full"
-                          src={auth.currentUser.photoURL}
-                          alt="P"
-                        />
+                        <img className="inline-block h-10 w-10 rounded-full" src={currentUser.photoURL} alt="P" />
                       </div>
                     )}
-                    {auth.currentUser && auth.currentUser.photoURL == null && (
+                    {currentUser && currentUser.photoURL == null && (
                       <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                         <span className="font-medium leading-none text-white">
-                          {auth.currentUser.displayName[0].toUpperCase()}
+                          {currentUser.displayName[0].toUpperCase()}
                         </span>
                       </span>
                     )}
                     <div className="ml-3">
                       <p className="text-sm font-medium text-white">
-                        {auth.currentUser ? auth.currentUser.displayName : ""}
+                        {currentUser ? currentUser.displayName : ""}
                       </p>
                       <button
                         onClick={handleViewProfile}
@@ -504,22 +510,20 @@ const Home = () => {
           <div className="flex-shrink-0 flex bg-gray-700 p-4">
             <div className="flex w-full items-center justify-between">
               <div className="flex items-center">
-                {auth.currentUser && auth.currentUser.photoURL !== null && (
+                {currentUser && currentUser.photoURL !== null && (
                   <div>
-                    <img className="inline-block h-10 w-10 rounded-full" src={auth.currentUser.photoURL} alt="P" />
+                    <img className="inline-block h-10 w-10 rounded-full" src={currentUser.photoURL} alt="P" />
                   </div>
                 )}
-                {auth.currentUser && auth.currentUser.photoURL == null && (
+                {currentUser && currentUser.photoURL == null && (
                   <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                     <span className="font-medium leading-none text-white">
-                      {auth.currentUser.displayName[0].toUpperCase()}
+                      {currentUser.displayName[0].toUpperCase()}
                     </span>
                   </span>
                 )}
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-white">
-                    {auth.currentUser ? auth.currentUser.displayName : ""}
-                  </p>
+                  <p className="text-sm font-medium text-white">{currentUser ? currentUser.displayName : ""}</p>
                   <button
                     onClick={handleViewProfile}
                     className="text-xs font-medium text-gray-300 group-hover:text-gray-200">
@@ -573,7 +577,7 @@ const Home = () => {
                               id="username"
                               autoComplete="username"
                               className="focus:ring-sky-500 focus:border-sky-500 flex-grow block w-full min-w-0 rounded-none rounded-r-md sm:text-sm border-gray-300"
-                              value={newDisplayName}
+                              defaultValue={currentUser.displayName}
                             />
                           </div>
                         </div>
@@ -589,7 +593,7 @@ const Home = () => {
                               name="about"
                               rows={3}
                               className="shadow-sm focus:ring-sky-500 focus:border-sky-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md"
-                              value={newAbout}
+                              defaultValue={currentUser.about}
                             />
                           </div>
                           <p className="mt-2 text-sm text-gray-500">
@@ -607,7 +611,11 @@ const Home = () => {
                             <div
                               className="flex-shrink-0 inline-block rounded-full overflow-hidden h-12 w-12"
                               aria-hidden="true">
-                              <img className="rounded-full h-full w-full" src={newPhotoURL} alt="" />
+                              <img
+                                className="rounded-full h-full w-full"
+                                src={newPhotoURL ? newPhotoURL : currentUser.photoURL}
+                                alt=""
+                              />
                             </div>
                             <div className="ml-5 rounded-md shadow-sm">
                               <div className="group relative border border-gray-300 rounded-md py-2 px-3 flex items-center justify-center hover:bg-gray-50 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-sky-500">
@@ -618,7 +626,17 @@ const Home = () => {
                                   <span className="sr-only"> user photo</span>
                                 </label>
                                 <input
-                                  onChange={e => setNewPhotoURL(URL.createObjectURL(e.target.files[0]))}
+                                  onChange={e => {
+                                    const reader = new FileReader();
+                                    reader.readAsDataURL(e.target.files[0]);
+                                    reader.addEventListener(
+                                      "load",
+                                      function () {
+                                        setNewPhotoURL(reader.result);
+                                      },
+                                      false
+                                    );
+                                  }}
                                   id="mobile-user-photo"
                                   name="user-photo"
                                   type="file"
@@ -630,14 +648,28 @@ const Home = () => {
                         </div>
 
                         <div className="hidden relative rounded-full overflow-hidden lg:block">
-                          <img className="relative rounded-full w-40 h-40" src={newPhotoURL} alt="" />
+                          <img
+                            className="relative rounded-full w-40 h-40"
+                            src={newPhotoURL ? newPhotoURL : currentUser.photoURL}
+                            alt=""
+                          />
                           <label
                             htmlFor="desktop-user-photo"
                             className="absolute inset-0 w-full h-full bg-black bg-opacity-75 flex items-center justify-center text-sm font-medium text-white opacity-0 hover:opacity-100 focus-within:opacity-100">
                             <span>Change</span>
                             <span className="sr-only"> user photo</span>
                             <input
-                              onChange={e => setNewPhotoURL(URL.createObjectURL(e.target.files[0]))}
+                              onChange={e => {
+                                const reader = new FileReader();
+                                reader.readAsDataURL(e.target.files[0]);
+                                reader.addEventListener(
+                                  "load",
+                                  function () {
+                                    setNewPhotoURL(reader.result);
+                                  },
+                                  false
+                                );
+                              }}
                               type="file"
                               id="desktop-user-photo"
                               name="user-photo"
@@ -655,7 +687,7 @@ const Home = () => {
                         </label>
                         <input
                           onChange={e => setNewFirstName(e.target.value)}
-                          value={newFirstName}
+                          defaultValue={currentUser.firstName}
                           type="text"
                           name="first-name"
                           id="first-name"
@@ -670,7 +702,7 @@ const Home = () => {
                         </label>
                         <input
                           onChange={e => setNewLastName(e.target.value)}
-                          value={newLastName}
+                          defaultValue={currentUser.lastName}
                           type="text"
                           name="last-name"
                           id="last-name"
@@ -685,7 +717,7 @@ const Home = () => {
                         </label>
                         <input
                           onChange={e => setNewURL(e.target.value)}
-                          value={newURL}
+                          defaultValue={currentUser.url}
                           type="text"
                           name="url"
                           id="url"
@@ -699,7 +731,7 @@ const Home = () => {
                         </label>
                         <input
                           onChange={e => setNewCompany(e.target.value)}
-                          value={newCompany}
+                          defaultValue={currentUser.company}
                           type="text"
                           name="company"
                           id="company"
@@ -734,11 +766,11 @@ const Home = () => {
                         </div>
                         <div className="px-4 py-6 sm:px-6">
                           <ul role="list" className="space-y-8">
-                            {auth.currentUser && messages && (
+                            {currentUser && messages && (
                               <div>
                                 {messages.map(message => (
                                   <li key={message.createdAt}>
-                                    {auth.currentUser.uid !== message.createdBy && (
+                                    {currentUser.uid !== message.createdBy && (
                                       <div className="flex pt-2 space-x-3">
                                         <div className="flex-shrink-0">
                                           {message.photo && (
@@ -766,7 +798,7 @@ const Home = () => {
                                         </div>
                                       </div>
                                     )}
-                                    {auth.currentUser.uid == message.createdBy && (
+                                    {currentUser.uid == message.createdBy && (
                                       <div className="flex pt-2 space-x-3 justify-end">
                                         <div className="flex flex-col items-end">
                                           <div className="text-sm ">
