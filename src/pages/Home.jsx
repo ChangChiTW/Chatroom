@@ -7,7 +7,7 @@ import { PlusSmIcon } from "@heroicons/react/solid";
 
 import { auth, db, messaging, token } from "../firebase";
 import { updateProfile, signOut } from "firebase/auth";
-import { ref, onValue, set } from "firebase/database";
+import { ref, onValue, set, get } from "firebase/database";
 import { onMessage } from "firebase/messaging";
 
 function classNames(...classes) {
@@ -57,7 +57,6 @@ const Home = () => {
     onValue(
       ref(db, `users/${auth.currentUser.uid}`),
       snapshot => {
-        console.log("!");
         if (snapshot.exists()) {
           const user = snapshot.val();
           if (newDisplayName !== user.displayName) setNewDisplayName(user.displayName);
@@ -69,7 +68,6 @@ const Home = () => {
           if (newCompany !== user.company) setNewCompany(user.company);
         } else {
           if (newDisplayName !== auth.currentUser.displayName) setNewDisplayName(auth.currentUser.displayName);
-          if (newPhotoURL !== auth.currentUser.photoURL) setNewPhotoURL(auth.currentUser.photoURL);
         }
         setLoad(true);
       },
@@ -139,8 +137,13 @@ const Home = () => {
       text: newText,
       createdAt: new Date().toLocaleString(),
       createdBy: auth.currentUser.uid,
-      name: auth.currentUser.displayName,
-      photo: auth.currentUser.photoURL,
+      displayName: newDisplayName,
+      about: newAbout,
+      photoURL: newPhotoURL,
+      firstName: newFirstName,
+      lastName: newLastName,
+      url: newURL,
+      company: newCompany,
     };
     setNewText("");
     await set(ref(db, `rooms/${currentChatroom}/messages/${newId}`), data);
@@ -174,7 +177,6 @@ const Home = () => {
     e.preventDefault();
     await updateProfile(auth.currentUser, {
       displayName: newDisplayName,
-      photoURL: newPhotoURL,
     });
     const data = {
       displayName: newDisplayName,
@@ -186,6 +188,16 @@ const Home = () => {
       company: newCompany,
     };
     await set(ref(db, `users/${auth.currentUser.uid}`), data);
+    get(ref(db, `rooms/`)).then(rooms => {
+      const roomsData = rooms.val();
+      for (let room in roomsData) {
+        const roomsMessages = roomsData[room].messages;
+        for (let message in roomsMessages) {
+          if (auth.currentUser.uid == roomsMessages[message].createdBy)
+            set(ref(db, `rooms/${room}/messages/${message}`), { ...roomsMessages[message], ...data });
+        }
+      }
+    });
   };
 
   return (
@@ -420,16 +432,12 @@ const Home = () => {
               <div className="flex-shrink-0 flex bg-gray-700 p-4">
                 <div className="flex w-full items-center justify-between">
                   <div className="flex items-center">
-                    {auth.currentUser && auth.currentUser.photoURL !== null && (
+                    {auth.currentUser && newPhotoURL !== null && (
                       <div>
-                        <img
-                          className="inline-block h-10 w-10 rounded-full"
-                          src={auth.currentUser.photoURL}
-                          alt="P"
-                        />
+                        <img className="inline-block h-10 w-10 rounded-full" src={newPhotoURL} alt="P" />
                       </div>
                     )}
-                    {auth.currentUser && auth.currentUser.photoURL == null && (
+                    {auth.currentUser && newPhotoURL == null && (
                       <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                         <span className="font-medium leading-none text-white">
                           {auth.currentUser.displayName[0].toUpperCase()}
@@ -504,12 +512,12 @@ const Home = () => {
           <div className="flex-shrink-0 flex bg-gray-700 p-4">
             <div className="flex w-full items-center justify-between">
               <div className="flex items-center">
-                {auth.currentUser && auth.currentUser.photoURL !== null && (
+                {auth.currentUser && newPhotoURL !== null && (
                   <div>
-                    <img className="inline-block h-10 w-10 rounded-full" src={auth.currentUser.photoURL} alt="P" />
+                    <img className="inline-block h-10 w-10 rounded-full" src={newPhotoURL} alt="P" />
                   </div>
                 )}
-                {auth.currentUser && auth.currentUser.photoURL == null && (
+                {auth.currentUser && newPhotoURL == null && (
                   <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                     <span className="font-medium leading-none text-white">
                       {auth.currentUser.displayName[0].toUpperCase()}
@@ -618,7 +626,17 @@ const Home = () => {
                                   <span className="sr-only"> user photo</span>
                                 </label>
                                 <input
-                                  onChange={e => setNewPhotoURL(URL.createObjectURL(e.target.files[0]))}
+                                  onChange={e => {
+                                    const reader = new FileReader();
+                                    reader.addEventListener(
+                                      "load",
+                                      function () {
+                                        setNewPhotoURL(reader.result);
+                                      },
+                                      false
+                                    );
+                                    reader.readAsDataURL(e.target.files[0]);
+                                  }}
                                   id="mobile-user-photo"
                                   name="user-photo"
                                   type="file"
@@ -637,7 +655,17 @@ const Home = () => {
                             <span>Change</span>
                             <span className="sr-only"> user photo</span>
                             <input
-                              onChange={e => setNewPhotoURL(URL.createObjectURL(e.target.files[0]))}
+                              onChange={e => {
+                                const reader = new FileReader();
+                                reader.readAsDataURL(e.target.files[0]);
+                                reader.addEventListener(
+                                  "load",
+                                  function () {
+                                    setNewPhotoURL(reader.result);
+                                  },
+                                  false
+                                );
+                              }}
                               type="file"
                               id="desktop-user-photo"
                               name="user-photo"
@@ -741,15 +769,19 @@ const Home = () => {
                                     {auth.currentUser.uid !== message.createdBy && (
                                       <div className="flex pt-2 space-x-3">
                                         <div className="flex-shrink-0">
-                                          {message.photo && (
+                                          {message.photoURL && (
                                             <div>
-                                              <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
+                                              <img
+                                                className="h-10 w-10 rounded-full"
+                                                src={message.photoURL}
+                                                alt=""
+                                              />
                                             </div>
                                           )}
-                                          {!message.photo && (
+                                          {!message.photoURL && (
                                             <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                                               <span className="font-medium leading-none text-white">
-                                                {message.name[0].toUpperCase()}
+                                                {message.displayName[0].toUpperCase()}
                                               </span>
                                             </span>
                                           )}
@@ -757,7 +789,7 @@ const Home = () => {
                                         <div>
                                           <div className="text-sm">
                                             <a href="#" className="font-medium text-gray-900">
-                                              {message.name}{" "}
+                                              {message.displayName}{" "}
                                             </a>
                                           </div>
                                           <div className="mt-1 text-sm text-gray-700">
@@ -771,7 +803,7 @@ const Home = () => {
                                         <div className="flex flex-col items-end">
                                           <div className="text-sm ">
                                             <a href="#" className="font-medium text-gray-900">
-                                              {message.name}{" "}
+                                              {message.displayName}{" "}
                                             </a>
                                           </div>
                                           <div className="mt-1 text-sm text-gray-700">
@@ -779,15 +811,19 @@ const Home = () => {
                                           </div>
                                         </div>
                                         <div className="flex-shrink-0">
-                                          {message.photo && (
+                                          {message.photoURL && (
                                             <div>
-                                              <img className="h-10 w-10 rounded-full" src={message.photo} alt="" />
+                                              <img
+                                                className="h-10 w-10 rounded-full"
+                                                src={message.photoURL}
+                                                alt=""
+                                              />
                                             </div>
                                           )}
-                                          {!message.photo && (
+                                          {!message.photoURL && (
                                             <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-gray-500">
                                               <span className="font-medium leading-none text-white">
-                                                {message.name[0].toUpperCase()}
+                                                {message.displayName[0].toUpperCase()}
                                               </span>
                                             </span>
                                           )}
