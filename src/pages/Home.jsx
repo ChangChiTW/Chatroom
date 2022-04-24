@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState, Fragment, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Dialog, Transition } from "@headlessui/react";
@@ -54,6 +54,10 @@ const Home = () => {
   //   console.log("Message received. ", payload);
   //   // ...
   // });
+
+  useEffect(() => {
+    if (!auth.currentUser) navigate("/");
+  }, []);
 
   if (auth.currentUser && !load)
     onValue(
@@ -187,14 +191,14 @@ const Home = () => {
     const data = {
       displayName: newDisplayName ? newDisplayName : currentUser.displayName,
       about: newAbout,
-      photoURL: newPhotoURL,
+      photoURL: newPhotoURL ? newPhotoURL : currentUser.photoURL,
       firstName: newFirstName,
       lastName: newLastName,
       url: newURL,
       company: newCompany,
     };
     await set(ref(db, `users/${currentUser.uid}`), data);
-    setLoad(false);
+    setCurrentUser({ ...data, uid: auth.currentUser.uid, email: auth.currentUser.email });
     window.alert("Profile update successfull!");
   };
 
