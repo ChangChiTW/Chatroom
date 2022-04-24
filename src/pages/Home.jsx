@@ -1,14 +1,13 @@
-import { useState, Fragment, useEffect } from "react";
+import { useState, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Dialog, Transition } from "@headlessui/react";
 import { LogoutIcon, CogIcon, XIcon, MenuIcon } from "@heroicons/react/outline";
 import { PlusSmIcon } from "@heroicons/react/solid";
 
-import { auth, db, messaging, token } from "../firebase";
+import { auth, db } from "../firebase";
 import { updateProfile, signOut } from "firebase/auth";
 import { ref, onValue, set } from "firebase/database";
-import { onMessage } from "firebase/messaging";
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -54,10 +53,6 @@ const Home = () => {
   //   console.log("Message received. ", payload);
   //   // ...
   // });
-
-  useEffect(() => {
-    if (!auth.currentUser) navigate("/");
-  }, []);
 
   if (auth.currentUser && !load)
     onValue(
@@ -186,7 +181,6 @@ const Home = () => {
     e.preventDefault();
     await updateProfile(auth.currentUser, {
       displayName: newDisplayName,
-      // photoURL: newPhotoURL,
     });
     const data = {
       displayName: newDisplayName ? newDisplayName : currentUser.displayName,
